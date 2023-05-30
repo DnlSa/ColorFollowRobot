@@ -1,0 +1,121 @@
+
+
+struttura da includere nel codice arduino e creare un pacchetto da inviare a matlab con queste cose .
+una volta inviato questo pacchetto si procede alla ricezione di un pacchetto che continui la comunicazione
+si puo discretizzare la comunicazione con dei delay tanto il cambio di coordinate non e veloce.
+
+Da cio che ho compreso a me servirebbero solamente 3 semplici script che possono essere
+
+1) MATLABtoRROBOT
+2) robot_pkt
+3) robot_unpacket
+
+
+
+
+
+grandezza struttura -> 20byte
+
+struct data{
+  int cmd;
+  int preferDistance;
+  int pos_x;
+  int pos_y;
+  int distance;
+};
+
+
+dopo aver creato questa struttura bisogna assegnare i valori e mandare il pacchetto
+
+struct data pkt_out
+
+pkt_out.cmd = 0 // comando
+pkt_out.preferDistance = 0 // ultimo distanza di default che deve mantenere il robot da target
+pkt_out.pos_x = XcmVal; // coordinata data dall esp
+pkt_out.pos_y = YcmVal; // coordianta data dall esp
+pkt_out.distance = dist; // distanza che sta leggendo dal distanziometro
+
+
+Udp.beginPacket(rip, rport); //inizializza un pacchetto
+Udp.printf(pkt_out); // scrive il messaggio
+Udp.endPacket(); // chiude il pacchetto e lo invia
+
+Udp.flush(); // attende l avvenuta uscita di tutti i pacchetti
+
+// seguenti api da eseguire insieme (in sostnza fa la stessa cosa dell api successiva )
+int packetSize = Udp.parsePacket(); // ricezione del pacchetto
+
+int len = Udp.read(incomingPacket, 255); // legge da socket udp
+Udp.write("ciao", 5) // scrive nella socket 5 byte indistintamente da come sono fatti a mali estremi si potrebbe fare pero dobbiamo stare attenti
+// a comprendere la grandezza della struttura in out
+
+size = Udp.receivePacket(buffer, size); // sintassi api ricezione di un pacchetti Size e la grandezza del pacchetto letto
+
+Udp.sendPacket(buffer, bufferSize, remoteIP, remotePort); // sintassi api di invio di un pacchetto
+
+
+
+
+// pagina di riferimento
+
+https://docs.particle.io/reference/device-os/api/udp/begin/#begin-
+
+POSSIBILE SCRIPT DI ESEMPIO
+
+#include <SPI.h>         // needed for Arduino versions later than 0018
+#include <Ethernet.h>
+#include <Udp.h>         // UDP library from: bjoern@cs.stanford.edu 12/30/2008
+
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+
+byte remoteIp[] = {
+  192,168,1,177 };
+
+unsigned int localPort = 8888;      // local port to listen on
+
+unsigned int remotePort;
+
+struct received {
+  int pwm1;
+  int pwm2;
+  int pwm3;
+  int pwm4;
+  unsigned char DIO0;
+  unsigned char DIO1;
+  unsigned char DIO2;
+  unsigned char DIO3;
+};
+
+struct sent {
+  int analog0;
+  int analog1;
+  int analog2;
+  int analog3;
+  unsigned char DI0;
+  unsigned char DI1;
+  unsigned char DI2;
+  unsigned char DI3;
+};
+
+struct received *dataIn;
+struct send *dataOut;
+
+void setup ()
+{
+  // start the Ethernet and UDP:
+  Ethernet.begin(mac,remoteIp);
+  Udp.begin(localPort);
+}
+
+void loop() {
+  // if there's data available, read a packet
+  int packetSize = Udp.available(); // note that this includes the UDP header
+
+  if(packetSize)
+  {
+    packetSize = packetSize - 8;      // subtract the 8 byte header
+    Udp.sendPacket( (byte *) &dataOut, 12, remoteIp, remotePort);
+    Udp.readPacket( (byte *) &dataIn, 12, remoteIp, &remotePort);
+  }
+}
